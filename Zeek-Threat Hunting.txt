@@ -106,4 +106,15 @@ index=zeek sourcetype=zeek_dns
 | sort -count 
 | head 10
 
+=========================================================================
+14- Query Length
+
+index=zeek sourcetype=zeek_dns qtype_name=A query=* 
+| mvexpand query
+| dedup query
+| eval querylength=len(query) 
+| stats count by id.orig_h,query,querylength
+| sort - querylength,count
+
+
 
