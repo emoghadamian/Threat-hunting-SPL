@@ -1,0 +1,106 @@
+1-CONNECTIONS TO DESTINATION PORTS ABOVE 1024
+
+index=zeek sourcetype=zeek_conn id.resp_p>1024 
+| chart count over service by id.resp_p
+
+============================================================================
+2-TOP 10 SOURCES BY NUMBER OF CONNECTIONS
+
+index=zeek sourcetype=zeek_conn 
+| top id.orig_h 
+| head 10
+
+==============================================================================
+3-TOP 10 SOURCES BY BYTES SENT
+
+index=zeek sourcetype=zeek_conn 
+| stats values(service) as Services sum(orig_bytes) as B by id.orig_h 
+| sort -B 
+| head 10 
+| eval MB = round(B/1024/1024,2) 
+| eval GB = round(MB/1024,2) 
+| rename id.orig_h as Source 
+| fields Source B MB GB Services
+
+==============================================================================
+4-TOP 10 DESTINATIONS BY NUMBER OF CONNECTIONS
+
+index=zeek sourcetype=zeek_conn 
+| top id.resp_h 
+| head 10
+
+===============================================================================
+5-TOP 10 DESTINATIONS BY BYTES RECEIVED
+
+index=zeek sourcetype=zeek_conn 
+| stats values(service) as Services sum(orig_bytes) as B by id.resp_h 
+| sort -B 
+| head 10 
+| eval MB = round(B/1024/1024,2) 
+| eval GB = round(MB/1024,2) 
+| rename id.resp_h as Destination 
+| fields Destination B MB GB Services
+
+==============================================================================
+6-BYTES TRANSFERRED OVER TIME BY SERVICE
+
+index=zeek sourcetype="zeek_conn" OR sourcetype="zeek_conn_long" 
+| eval orig_megabytes = round(orig_bytes/1024/1024,2) 
+| eval resp_megabytes = round(resp_bytes/1024/1024,2) 
+| eval orig_gigabytes = round(orig_megabytes/1024,2) 
+| eval resp_gigabytes = round(resp_megabytes/1024,2) 
+| timechart sum(orig_gigabytes) AS "Outgoing Gigabytes",sum(resp_gigabytes) AS "Incoming Gigabytes" by service span=1h
+
+==============================================================================================================
+7-RARE JA3 HASHES
+
+index=zeek sourcetype=zeek_ssl 
+| rare ja3
+
+=========================================================
+8-EXPIRED CERTIFICATES
+
+index=zeek sourcetype=zeek_x509 
+| convert num(certificate.not_valid_after) AS cert_expire 
+| eval current_time = now(), cert_expire_readable = strftime(cert_expire,"%Y-%m-%dT%H:%M:%S.%Q"), current_time_readable=strftime(current_time,"%Y-%m-%dT%H:%M:%S.%Q") 
+| where current_time > cert_expire
+
+=====================================================================
+9-LARGE DNS QUERIES
+
+index=zeek sourcetype=zeek_dns 
+| eval query_length = len(query) 
+| where query_length > 75 
+| table _time id.orig_h id.resp_h proto query query_length answer
+
+===========================================================================
+10-LARGE DNS RESPONSES
+
+index=zeek sourcetype=zeek_dns 
+| eval answer_length = len(answer) 
+| where answer_length > 475 
+| table _time id.orig_h id.resp_h proto query answer answer_length
+
+=============================================================================
+11-QUERY RESPONSES WITH NXDOMAIN
+
+index=zeek sourcetype=zeek_dns rcode_name=NXDOMAIN 
+| table _time id.orig_h id.resp_h proto query
+
+===========================================================================
+12-TOP 10 RESPONDING SERVERS
+
+index=zeek sourcetype=zeek_dns 
+| chart count by id.resp_h 
+| sort -count 
+| head 10
+
+=========================================================================
+13-TOP 10 SOURCES FOR QUERIES
+
+index=zeek sourcetype=zeek_dns 
+| chart count by id.orig_h 
+| sort -count 
+| head 10
+
+
