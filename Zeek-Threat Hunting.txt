@@ -1,7 +1,8 @@
 1-CONNECTIONS TO DESTINATION PORTS ABOVE 1024
 
 index=zeek sourcetype=zeek_conn id.resp_p>1024 
-| chart count over service by id.resp_p
+| rename id.resp_p as port_numbers
+| stats count by id.orig_h,id.resp_h,port_numbers,service
 
 ============================================================================
 2-TOP 10 SOURCES BY NUMBER OF CONNECTIONS
@@ -14,13 +15,13 @@ index=zeek sourcetype=zeek_conn
 3-TOP 10 SOURCES BY BYTES SENT
 
 index=zeek sourcetype=zeek_conn 
-| stats values(service) as Services sum(orig_bytes) as B by id.orig_h 
-| sort -B 
+| stats values(service) as Services sum(orig_bytes) as Bytes by id.orig_h 
+| sort -Bytes
 | head 10 
-| eval MB = round(B/1024/1024,2) 
+| eval MB = round(Bytes/1024/1024,2) 
 | eval GB = round(MB/1024,2) 
 | rename id.orig_h as Source 
-| fields Source B MB GB Services
+| fields Source Bytes MB GB Services
 
 ==============================================================================
 4-TOP 10 DESTINATIONS BY NUMBER OF CONNECTIONS
@@ -33,18 +34,18 @@ index=zeek sourcetype=zeek_conn
 5-TOP 10 DESTINATIONS BY BYTES RECEIVED
 
 index=zeek sourcetype=zeek_conn 
-| stats values(service) as Services sum(orig_bytes) as B by id.resp_h 
-| sort -B 
+| stats values(service) as Services sum(orig_bytes) as Bytes by id.resp_h 
+| sort -Bytes 
 | head 10 
-| eval MB = round(B/1024/1024,2) 
+| eval MB = round(Bytes/1024/1024,2) 
 | eval GB = round(MB/1024,2) 
 | rename id.resp_h as Destination 
-| fields Destination B MB GB Services
+| fields Destination Bytes MB GB Services
 
 ==============================================================================
 6-BYTES TRANSFERRED OVER TIME BY SERVICE
 
-index=zeek sourcetype="zeek_conn" OR sourcetype="zeek_conn_long" 
+index=zeek sourcetype="zeek_conn"  
 | eval orig_megabytes = round(orig_bytes/1024/1024,2) 
 | eval resp_megabytes = round(resp_bytes/1024/1024,2) 
 | eval orig_gigabytes = round(orig_megabytes/1024,2) 
@@ -69,17 +70,19 @@ index=zeek sourcetype=zeek_x509
 9-LARGE DNS QUERIES
 
 index=zeek sourcetype=zeek_dns 
+| rename answers{} as answers
 | eval query_length = len(query) 
-| where query_length > 75 
-| table _time id.orig_h id.resp_h proto query query_length answer
+| where query_length > 75
+| table _time id.orig_h id.resp_h proto query query_length answers
 
 ===========================================================================
 10-LARGE DNS RESPONSES
 
 index=zeek sourcetype=zeek_dns 
-| eval answer_length = len(answer) 
-| where answer_length > 475 
-| table _time id.orig_h id.resp_h proto query answer answer_length
+| rename answers{} as answers
+| eval answer_length = len(answers) 
+| where answer_length > 400
+| table _time id.orig_h id.resp_h proto query answers answer_length
 
 =============================================================================
 11-QUERY RESPONSES WITH NXDOMAIN
