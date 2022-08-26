@@ -119,7 +119,7 @@ index=zeek sourcetype=zeek_dns source="/opt/zeek/logs/current/dns.log"
 index=zeek sourcetype=zeek_dns source="/opt/zeek/logs/current/dns.log"
 | rename answers{} as answers
 | eval answer_length = len(answers) 
-| where answer_length > 50
+| where answer_length > 100
 | table _time id.orig_h id.resp_h proto query answers answer_length
 
 ======================================================================
@@ -161,7 +161,7 @@ index=zeek sourcetype=zeek_dns source="/opt/zeek/logs/current/dns.log" qtype_nam
 index=zeek source="/opt/zeek/logs/current/http.log" sourcetype=zeek_http earliest=-24h
 | stats count by id.orig_h,user_agent
 | dedup id.orig_h,user_agent
-| sort -count
+| sort +count
 
 ====================================================================
 
