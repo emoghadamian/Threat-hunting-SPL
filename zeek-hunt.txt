@@ -1,0 +1,182 @@
+1-CONNECTIONS TO DESTINATION PORTS ABOVE 1024
+
+index=zeek source="/opt/zeek/logs/current/conn.log" sourcetype=zeek_conn id.resp_p>1024 
+| rename id.resp_p as port_numbers
+| chart count over service by port_numbers
+
+============================================================================
+2-Top 10 Sources and Destinations IP pairs along with the Destination Ports
+
+index=zeek source="/opt/zeek/logs/current/conn.log" sourcetype=zeek_conn 
+| stats count by id.orig_h,id.resp_h,id.resp_p 
+| dedup id.orig_h,id.resp_h,id.resp_p 
+| sort -count
+| head 10
+
+===========================================================================
+
+3-Top 10 Sources By Number Connections
+
+index=zeek source="/opt/zeek/logs/current/conn.log" sourcetype=zeek_conn 
+| top id.orig_h 
+| head 10
+
+============================================================================
+4-Identifying Long Connections
+
+index=zeek source="/opt/zeek/logs/current/conn.log" sourcetype=zeek_conn earliest=-24h
+| eval Minutes=round(duration/60, 3)
+| eval hours=round(Minutes/60, 3)
+| stats count by id.orig_h,id.resp_h,service,duration,Minutes,hours
+| sort -duration
+
+===========================================================================
+5-Top 10 Sources By Bytes Sent
+
+index=zeek source="/opt/zeek/logs/current/conn.log" sourcetype=zeek_conn 
+| stats values(service) as Services sum(orig_bytes) as Bytes by id.orig_h 
+| sort -Bytes
+| head 10 
+| eval MB = round(Bytes/1024/1024,2) 
+| eval GB = round(MB/1024,2) 
+| rename id.orig_h as Source 
+| fields Source Bytes MB GB Services
+
+===========================================================================
+
+6-Top 10 Destinations By Number Of Connections
+
+index=zeek source="/opt/zeek/logs/current/conn.log" sourcetype=zeek_conn 
+| top id.resp_h 
+| head 10
+
+==========================================================================
+7-Top 10 Destinations By bytes Received
+
+index=zeek source="/opt/zeek/logs/current/conn.log" sourcetype=zeek_conn 
+| stats values(service) as Services sum(orig_bytes) as Bytes by id.resp_h 
+| sort -Bytes 
+| head 10 
+| eval MB = round(Bytes/1024/1024,2) 
+| eval GB = round(MB/1024,2) 
+| rename id.resp_h as Destination 
+| fields Destination Bytes MB GB Services
+
+==========================================================================
+8-Bytes Transferred Over By Service 
+
+index=zeek source="/opt/zeek/logs/current/conn.log" sourcetype="zeek_conn"  
+| eval orig_megabytes = round(orig_bytes/1024/1024,2) 
+| eval resp_megabytes = round(resp_bytes/1024/1024,2) 
+| eval orig_gigabytes = round(orig_megabytes/1024,2) 
+| eval resp_gigabytes = round(resp_megabytes/1024,2) 
+| timechart sum(orig_gigabytes) AS "Egress Gigabytes",sum(resp_gigabytes) AS "Ingress Gigabytes" by service span=1h
+
+=========================================================================
+
+9-Rare Ja3 Hashes
+
+index=zeek sourcetype=zeek_ssl 
+| rare ja3
+
+========================================================================
+10-EXPIRED CERTIFICATES
+
+index=zeek source="/opt/zeek/logs/current/x509.log" sourcetype=zeek_x509 
+| convert num(certificate.not_valid_after) AS cert_expire 
+| eval current_time = now(), cert_expire_readable = strftime(cert_expire,"%Y-%m-%dT%H:%M:%S.%Q"), current_time_readable=strftime(current_time,"%Y-%m-%dT%H:%M:%S.%Q") 
+| where current_time > cert_expire
+
+========================================================================
+
+11-Certificate subject
+
+index=zeek source="/opt/zeek/logs/current/x509.log" sourcetype=zeek_x509
+| stats count by certificate.subject
+| sort - count
+| rare limit=50 certificate.subject
+=================================================================
+
+12-Certificate issuer
+
+index=zeek source="/opt/zeek/logs/current/x509.log" sourcetype=zeek_x509 
+| stats count by certificate.issuer
+| sort - count 
+| rare limit=50 certificate.issuer
+
+========================================================================
+13-LARGE DNS QUERIES
+
+index=zeek sourcetype=zeek_dns source="/opt/zeek/logs/current/dns.log"
+| rename answers{} as answers
+| eval query_length = len(query) 
+| where query_length > 75
+| table _time id.orig_h id.resp_h proto query query_length answers
+
+=======================================================================
+14-LARGE DNS RESPONSES
+
+index=zeek sourcetype=zeek_dns source="/opt/zeek/logs/current/dns.log"
+| rename answers{} as answers
+| eval answer_length = len(answers) 
+| where answer_length > 50
+| table _time id.orig_h id.resp_h proto query answers answer_length
+
+======================================================================
+15-QUERY RESPONSES WITH NXDOMAIN
+
+index=zeek sourcetype=zeek_dns source="/opt/zeek/logs/current/dns.log" rcode_name=NXDOMAIN earliest=-24h
+| table _time id.orig_h id.resp_h proto query
+
+=====================================================================
+16-TOP 10 RESPONDING SERVERS
+
+index=zeek sourcetype=zeek_dns source="/opt/zeek/logs/current/dns.log" 
+| chart count by id.resp_h 
+| sort -count 
+| head 10
+
+====================================================================
+17-TOP 10 SOURCES FOR QUERIES
+
+index=zeek sourcetype=zeek_dns source="/opt/zeek/logs/current/dns.log" 
+| chart count by id.orig_h 
+| sort -count 
+| head 10
+
+===================================================================
+18- Query Length
+
+index=zeek sourcetype=zeek_dns source="/opt/zeek/logs/current/dns.log" qtype_name=A query=* 
+| mvexpand query
+| dedup query
+| eval query_length=len(query) 
+| table _time id.orig_h id.resp_h proto query query_length answers{}
+
+===================================================================
+
+
+19-User Agent
+
+index=zeek source="/opt/zeek/logs/current/http.log" sourcetype=zeek_http earliest=-24h
+| stats count by id.orig_h,user_agent
+| dedup id.orig_h,user_agent
+| sort -count
+
+====================================================================
+
+20-filename with total_bytes
+
+index=zeek sourcetype=zeek_files
+| stats count by filename total_bytes
+| dedup filename
+| sort - count
+
+================================================================
+
+21-transmit and receive with mime_type,filename
+
+index=zeek sourcetype=zeek_files source="/opt/zeek/logs/current/files.log" 
+| stats count by tx_hosts{}, rx_hosts{}, mime_type, filename
+| sort -count
+
