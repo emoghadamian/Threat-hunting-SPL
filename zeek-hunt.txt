@@ -180,3 +180,26 @@ index=zeek sourcetype=zeek_files source="/opt/zeek/logs/current/files.log"
 | stats count by tx_hosts{}, rx_hosts{}, mime_type, filename
 | sort -count
 
+=================================================================
+
+22-Finding Unauthorized DNS Servers
+
+index=zeek sourcetype=zeek_dns "id.resp_p"=53 id.resp_h!=192.168.0.0/16 `comment("you must replace your own local subnet ") 
+|  stats count by id.resp_h
+
+====================================================================
+
+23-Finding DNS Spoofing Activity
+
+index=zeek sourcetype=zeek_weird name=dns_unmatched_reply id.resp_p=53 
+| stats count by id.orig_h id.resp_p
+
+=======================================================================
+
+24-Finding Clients Connecting to multiple DNS Servers
+
+index=zeek sourcetype=zeek_dns "id.resp_p"=53 id.resp_h!=192.168.0.0/16 `comment("you must replace your own local subnet ") 
+| bucket _time span=1s 
+| stats values(id.resp_h) AS IPAddresses_list dc(id.resp_h) AS distinct by _time id.orig_h 
+| search distinct > 2
+| table id.orig_h IPAddresses_list distinct
