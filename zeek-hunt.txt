@@ -203,3 +203,19 @@ index=zeek sourcetype=zeek_dns "id.resp_p"=53 id.resp_h!=192.168.0.0/16 `comment
 | stats values(id.resp_h) AS IPAddresses_list dc(id.resp_h) AS distinct by _time id.orig_h 
 | search distinct > 2
 | table id.orig_h IPAddresses_list distinct
+
+========================================================================
+
+25-Top Responder Port
+
+index=zeek sourcetype=zeek_conn 
+| top id.resp_p limit=15 useother=true countfield=Total showperc=false
+
+==========================================================================
+
+26-Top Services
+
+index=zeek sourcetype=zeek_conn 
+| top service limit=15 useother=true countfield=Total showperc=false
+
+==========================================================================
